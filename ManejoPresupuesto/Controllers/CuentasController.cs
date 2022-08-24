@@ -1,6 +1,7 @@
 ﻿using ManejoPresupuesto.Models;
 using ManejoPresupuesto.Servicios;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace ManejoPresupuesto.Controllers
 {
@@ -23,8 +24,7 @@ namespace ManejoPresupuesto.Controllers
             var usuarioId = serviciosUsuarios.ObtenerUsuarioId();
             var tiposCuentas = await repositorioTiposCuentas.Obtener(usuarioId);
             var modelo = new CuentaCreacionViewModel();
-            modelo.TiposCuentas = tiposCuentas.Select(x => 
-            new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem(x.Nombre, x.Id.ToString()));
+            modelo.TiposCuentas = tiposCuentas.Select(x => new SelectListItem(x.Nombre, x.Id.ToString()));
             return View(modelo);
         }
     }
