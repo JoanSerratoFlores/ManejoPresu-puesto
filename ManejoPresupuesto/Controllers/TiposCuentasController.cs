@@ -10,10 +10,10 @@ namespace ManejoPresupuesto.Controllers
     {
 
         //private readonly string connectionString;
-        private readonly RepositorioTiposCuentas repositorioTiposCuentas;
+        private readonly IRepositorioTiposCuentas repositorioTiposCuentas;
         private readonly IServiciosUsuarios serviciosUsuarios;
 
-        public TiposCuentasController(RepositorioTiposCuentas repositorioTiposCuentas,
+        public TiposCuentasController(IRepositorioTiposCuentas repositorioTiposCuentas,
                                         IServiciosUsuarios serviciosUsuarios)
         {
             this.repositorioTiposCuentas = repositorioTiposCuentas;
