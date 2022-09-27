@@ -11,16 +11,22 @@ namespace ManejoPresupuesto.Controllers
         private readonly IRepositorioTiposCuentas repositorioTiposCuentas;
         private readonly IServiciosUsuarios serviciosUsuarios;
         private readonly IRepositorioCuentas repositorioCuentas;
+        private readonly IServicioReportes servicioReportes;
         private readonly IMapper mapper;
+        private readonly IRepositorioTransacciones repositorioTransacciones;
 
         public CuentasController(IRepositorioTiposCuentas repositorioTiposCuentas,
             IServiciosUsuarios serviciosUsuarios, IRepositorioCuentas repositorioCuentas,
-            IMapper mapper)
+            IServicioReportes servicioReportes,
+            IMapper mapper,
+            IRepositorioTransacciones repositorioTransacciones)
         {
             this.repositorioTiposCuentas = repositorioTiposCuentas;
             this.serviciosUsuarios = serviciosUsuarios;
             this.repositorioCuentas = repositorioCuentas;
+            this.servicioReportes = servicioReportes;
             this.mapper = mapper;
+            this.repositorioTransacciones = repositorioTransacciones;
         }
 
         public async Task<IActionResult> Index()
@@ -37,6 +43,25 @@ namespace ManejoPresupuesto.Controllers
                 }).ToList();
 
             return View(modelo);
+        }
+
+        public async Task<IActionResult>Detalle(int id,int mes,int año)
+        {
+            var usuarioId = serviciosUsuarios.ObtenerUsuarioId();
+            var cuenta = await repositorioCuentas.ObtenerPorId(id, usuarioId);
+            if(cuenta is null)
+            {
+                return RedirectToAction("NoEncontrado", "Home");
+            }
+
+            ViewBag.Cuenta = cuenta.Nombre;
+
+            var modelo = await servicioReportes.
+                ObtenerReporteTransaccionesDetalladasPorCuenta
+                (usuarioId, id, mes, año, ViewBag);
+
+            return View(modelo);
+
         }
 
         [HttpGet]

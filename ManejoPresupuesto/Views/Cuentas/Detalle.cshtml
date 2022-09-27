@@ -1,6 +1,9 @@
 ﻿@model ReporteTransaccionesDetalladas
+
 @{
-    ViewData["Title"] = "Reporte Diario";
+    ViewData["Title"] = "Movimientos Cuenta";
 }
-<partial name="_Submenu"  Model="SubMenuTransacciones.Diario"/>
+
+<h1>Movimientos @ViewBag.Cuenta</h1>
+
 <partial name="ReporteTransaccionesDetalladas" model="Model" />

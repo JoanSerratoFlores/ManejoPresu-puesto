@@ -1,4 +1,5 @@
-﻿using ManejoPresupuesto.Models;
+﻿using AutoMapper;
+using ManejoPresupuesto.Models;
 using ManejoPresupuesto.Servicios;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -11,22 +12,56 @@ namespace ManejoPresupuesto.Controllers
         private readonly IRepositorioCuentas repositorioCuentas;
         private readonly IRepositorioCategorias repositorioCategorias;
         private readonly IRepositorioTransacciones repositorioTransacciones;
+        private readonly IServicioReportes servicioReportes;
+        private readonly IMapper mapper;
 
         public TransaccionesController(
             IServiciosUsuarios servicioUsuarios, 
             IRepositorioCuentas repositorioCuentas,
             IRepositorioCategorias repositorioCategorias,
-            IRepositorioTransacciones repositorioTransacciones)
+            IRepositorioTransacciones repositorioTransacciones,
+            IServicioReportes servicioReportes,
+            IMapper mapper)
         {
             this.servicioUsuarios = servicioUsuarios;
             this.repositorioCuentas = repositorioCuentas;
             this.repositorioCategorias = repositorioCategorias;
             this.repositorioTransacciones = repositorioTransacciones;
+            this.servicioReportes = servicioReportes;
+            this.mapper = mapper;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult>Index(int mes, int año)
+        {
+            var usuarioId = servicioUsuarios.ObtenerUsuarioId();
+            var modelo = await servicioReportes.
+                ObtenerReporteTransaccionesDetalladas(usuarioId, mes, año, ViewBag);
+            return View(modelo);
+        }
+
+        public IActionResult Semanal()
         {
             return View();
+        }
+        public IActionResult Mensual()
+        {
+            return View();
+        }
+        public IActionResult ExcelReporte()
+        {
+            return View();
+        }
+        public IActionResult Calendario()
+        {
+            return View();
+        }
+
+        private static ReporteTransaccionesDetalladas GenerarReporteTransaccionesDetalladas()
+        {
+            var modelo = new ReporteTransaccionesDetalladas();
+
+
+            return modelo;
         }
 
         public async Task<IActionResult>Crear()
@@ -77,6 +112,100 @@ namespace ManejoPresupuesto.Controllers
 
         }
 
+        [HttpGet]
+        public async Task<IActionResult>Editar(int id, string urlRetorno = null)
+        {
+            var usuarioId = servicioUsuarios.ObtenerUsuarioId();
+            var transaccion = await repositorioTransacciones.ObtenerPorId(id, usuarioId);
+            if(transaccion is null)
+            {
+                return RedirectToAction("NoEncontrado","Home");
+            }
+
+            var modelo = mapper.Map<TransaccionActualizacionViewModel>(transaccion);
+
+            modelo.MontoAnterior = modelo.Monto;
+
+            if(modelo.TipoOperacionId==TipoOperacion.Gasto)
+            {
+                modelo.MontoAnterior = modelo.Monto * -1;
+            }
+
+            modelo.CuentaAnteriorId = transaccion.CuentaId;
+            modelo.Categorias = await ObtenerCategorias(usuarioId, transaccion.TipoOperacionId);
+            modelo.Cuentas = await ObtenerCuentas(usuarioId);
+            modelo.UrlRetorno = urlRetorno;
+            return View(modelo);
+        }
+
+        [HttpPost]
+
+        public async Task<IActionResult> Editar(TransaccionActualizacionViewModel modelo)
+        {
+            var usuarioId = servicioUsuarios.ObtenerUsuarioId();
+            if (!ModelState.IsValid)
+            {
+                modelo.Cuentas = await ObtenerCuentas(usuarioId);
+                modelo.Categorias = await ObtenerCategorias(usuarioId, modelo.TipoOperacionId);
+                return View(modelo);
+            }
+
+            var cuenta = await repositorioCuentas.ObtenerPorId(modelo.CuentaId, usuarioId);
+
+            if (cuenta is null)
+            {
+                return RedirectToAction("NoEncontrado", "Home");
+            }
+
+            var categoria = await repositorioCategorias.ObtenerPorId(modelo.CategoriaId, usuarioId);
+
+            if (categoria is null)
+            {
+                return RedirectToAction("NoEncontrado", "Home");
+            }
+
+            var transaccion = mapper.Map<Transaccion>(modelo);
+
+            if(modelo.TipoOperacionId==TipoOperacion.Gasto)
+            {
+                transaccion.Monto *= -1;
+            }
+            await repositorioTransacciones.Actualizar(transaccion, 
+                modelo.MontoAnterior, modelo.CuentaAnteriorId);
+
+            if (string.IsNullOrEmpty(modelo.UrlRetorno))
+            {
+            return RedirectToAction("Index");
+            }
+            else
+            {
+                return LocalRedirect(modelo.UrlRetorno);
+            }
+
+
+        }
+
+        [HttpPost]
+        public async Task<IActionResult>Borrar(int id, string urlRetorno = null)
+        {
+            var usuarioId = servicioUsuarios.ObtenerUsuarioId();
+            var transaccion = await repositorioTransacciones.ObtenerPorId(id, usuarioId);
+            if (transaccion is null)
+            {
+                return RedirectToAction("NoEncontrado", "Home");
+            }
+            await repositorioTransacciones.Borrar(id);
+
+            if (string.IsNullOrEmpty(urlRetorno))
+            {
+                return RedirectToAction("Index");
+            }
+            else
+            {
+                return LocalRedirect(urlRetorno);
+            }         
+        }
+
         private async Task<IEnumerable<SelectListItem>>ObtenerCuentas(int usuarioId)
         {
             var cuentas = await repositorioCuentas.Buscar(usuarioId);
@@ -96,5 +225,6 @@ namespace ManejoPresupuesto.Controllers
             var categorias = await ObtenerCategorias(usuarioId, tipoOperacion);
             return Ok(categorias);
         }
+
     }
 }
