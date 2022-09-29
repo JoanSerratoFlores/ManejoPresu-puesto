@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace ManejoPresupuesto.Controllers
 {
-    public class TransaccionesController:Controller
+    public class TransaccionesController : Controller
     {
         private readonly IServiciosUsuarios servicioUsuarios;
         private readonly IRepositorioCuentas repositorioCuentas;
@@ -16,7 +16,7 @@ namespace ManejoPresupuesto.Controllers
         private readonly IMapper mapper;
 
         public TransaccionesController(
-            IServiciosUsuarios servicioUsuarios, 
+            IServiciosUsuarios servicioUsuarios,
             IRepositorioCuentas repositorioCuentas,
             IRepositorioCategorias repositorioCategorias,
             IRepositorioTransacciones repositorioTransacciones,
@@ -31,7 +31,7 @@ namespace ManejoPresupuesto.Controllers
             this.mapper = mapper;
         }
 
-        public async Task<IActionResult>Index(int mes, int año)
+        public async Task<IActionResult> Index(int mes, int año)
         {
             var usuarioId = servicioUsuarios.ObtenerUsuarioId();
             var modelo = await servicioReportes.
@@ -39,9 +39,65 @@ namespace ManejoPresupuesto.Controllers
             return View(modelo);
         }
 
-        public IActionResult Semanal()
+        public async Task<IActionResult> Semanal(int mes, int año)
         {
-            return View();
+            var usuarioId = servicioUsuarios.ObtenerUsuarioId();
+            IEnumerable<ResultadoObtenerPorSemana> TransaccionesPorSemana =
+                await servicioReportes.ObtenerReporteSemanal(usuarioId, mes, año, ViewBag);
+
+            var agrupado = TransaccionesPorSemana.GroupBy(X => X.Semana).Select(X =>
+            new ResultadoObtenerPorSemana()
+            {
+                Semana = X.Key,
+                Ingresos = X.Where(x => x.TipoOperacionId == TipoOperacion.Ingreso).
+                Select(x => x.Monto).FirstOrDefault(),
+                Gastos = X.Where(x => x.TipoOperacionId == TipoOperacion.Gasto).
+                Select(x => x.Monto).FirstOrDefault()
+            }).ToList();
+
+
+            if (año == 0 || mes == 0)
+            {
+                var hoy = DateTime.Today;
+                año = hoy.Year;
+                mes = hoy.Month;
+            }
+            var fechaReferencia = new DateTime(año, mes, 1);
+            var diasDelMes = Enumerable.Range(1, fechaReferencia.AddMonths(1).AddDays(-1).Day);
+
+            var diasSegmentados = diasDelMes.Chunk(7).ToList();
+
+            for (int i = 0; i < diasSegmentados.Count(); i++)
+            {
+                var semana = i + 1;
+                var fechaInicio = new DateTime(año, mes, diasSegmentados[i].First());
+                var fechaFin = new DateTime(año, mes, diasSegmentados[i].Last());
+                var grupoSemana = agrupado.FirstOrDefault(x => x.Semana == semana);
+
+                if (grupoSemana is null)
+                {
+                    agrupado.Add(new ResultadoObtenerPorSemana()
+                    {
+                        Semana = semana,
+                        FechaInicio = fechaInicio,
+                        FechaFin = fechaFin
+                    });
+                }
+                else
+                {
+                    grupoSemana.FechaInicio = fechaInicio;
+                    grupoSemana.FechaFin = fechaFin;
+
+                }
+            }
+
+            agrupado = agrupado.OrderByDescending(x => x.Semana).ToList();
+
+            var modelo = new ReporteSemanalViewModel();
+            modelo.TransacionesPorSemana = agrupado;
+            modelo.fechaReferencia = fechaReferencia;
+
+            return View(modelo);
         }
         public IActionResult Mensual()
         {
@@ -64,7 +120,7 @@ namespace ManejoPresupuesto.Controllers
             return modelo;
         }
 
-        public async Task<IActionResult>Crear()
+        public async Task<IActionResult> Crear()
         {
             var usuarioId = servicioUsuarios.ObtenerUsuarioId();
             var modelo = new TransaccionCreacionViewModel();
@@ -75,11 +131,11 @@ namespace ManejoPresupuesto.Controllers
 
         [HttpPost]
 
-        public async Task<IActionResult>Crear(TransaccionCreacionViewModel modelo)
+        public async Task<IActionResult> Crear(TransaccionCreacionViewModel modelo)
         {
             var usuarioId = servicioUsuarios.ObtenerUsuarioId();
 
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
                 modelo.Cuentas = await ObtenerCuentas(usuarioId);
                 modelo.Categorias = await ObtenerCategorias(usuarioId, modelo.TipoOperacionId);
@@ -88,21 +144,21 @@ namespace ManejoPresupuesto.Controllers
 
             var cuenta = await repositorioCuentas.ObtenerPorId(modelo.CuentaId, usuarioId);
 
-            if(cuenta is null)
+            if (cuenta is null)
             {
                 return RedirectToAction("NoEncontrado", "Home");
             }
 
             var categoria = await repositorioCategorias.ObtenerPorId(modelo.CategoriaId, usuarioId);
 
-            if(categoria is null)
+            if (categoria is null)
             {
                 RedirectToAction("NoEncontrado", "Home");
             }
 
             modelo.UsuarioId = usuarioId;
 
-            if(modelo.TipoOperacionId == TipoOperacion.Gasto)
+            if (modelo.TipoOperacionId == TipoOperacion.Gasto)
             {
                 modelo.Monto *= -1;
             }
@@ -113,20 +169,20 @@ namespace ManejoPresupuesto.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult>Editar(int id, string urlRetorno = null)
+        public async Task<IActionResult> Editar(int id, string urlRetorno = null)
         {
             var usuarioId = servicioUsuarios.ObtenerUsuarioId();
             var transaccion = await repositorioTransacciones.ObtenerPorId(id, usuarioId);
-            if(transaccion is null)
+            if (transaccion is null)
             {
-                return RedirectToAction("NoEncontrado","Home");
+                return RedirectToAction("NoEncontrado", "Home");
             }
 
             var modelo = mapper.Map<TransaccionActualizacionViewModel>(transaccion);
 
             modelo.MontoAnterior = modelo.Monto;
 
-            if(modelo.TipoOperacionId==TipoOperacion.Gasto)
+            if (modelo.TipoOperacionId == TipoOperacion.Gasto)
             {
                 modelo.MontoAnterior = modelo.Monto * -1;
             }
@@ -166,16 +222,16 @@ namespace ManejoPresupuesto.Controllers
 
             var transaccion = mapper.Map<Transaccion>(modelo);
 
-            if(modelo.TipoOperacionId==TipoOperacion.Gasto)
+            if (modelo.TipoOperacionId == TipoOperacion.Gasto)
             {
                 transaccion.Monto *= -1;
             }
-            await repositorioTransacciones.Actualizar(transaccion, 
+            await repositorioTransacciones.Actualizar(transaccion,
                 modelo.MontoAnterior, modelo.CuentaAnteriorId);
 
             if (string.IsNullOrEmpty(modelo.UrlRetorno))
             {
-            return RedirectToAction("Index");
+                return RedirectToAction("Index");
             }
             else
             {
@@ -186,7 +242,7 @@ namespace ManejoPresupuesto.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult>Borrar(int id, string urlRetorno = null)
+        public async Task<IActionResult> Borrar(int id, string urlRetorno = null)
         {
             var usuarioId = servicioUsuarios.ObtenerUsuarioId();
             var transaccion = await repositorioTransacciones.ObtenerPorId(id, usuarioId);
@@ -203,23 +259,23 @@ namespace ManejoPresupuesto.Controllers
             else
             {
                 return LocalRedirect(urlRetorno);
-            }         
+            }
         }
 
-        private async Task<IEnumerable<SelectListItem>>ObtenerCuentas(int usuarioId)
+        private async Task<IEnumerable<SelectListItem>> ObtenerCuentas(int usuarioId)
         {
             var cuentas = await repositorioCuentas.Buscar(usuarioId);
             return cuentas.Select(x => new SelectListItem(x.Nombre, x.Id.ToString()));
         }
 
-        private async Task<IEnumerable<SelectListItem>>ObtenerCategorias(int usuarioId ,TipoOperacion tipoOperacion)
+        private async Task<IEnumerable<SelectListItem>> ObtenerCategorias(int usuarioId, TipoOperacion tipoOperacion)
         {
             var categorias = await repositorioCategorias.Obtener(usuarioId, tipoOperacion);
             return categorias.Select(x => new SelectListItem(x.Nombre, x.Id.ToString()));
         }
 
         [HttpPost]
-        public async Task<IActionResult> ObtenerCategorias([FromBody]TipoOperacion tipoOperacion)
+        public async Task<IActionResult> ObtenerCategorias([FromBody] TipoOperacion tipoOperacion)
         {
             var usuarioId = servicioUsuarios.ObtenerUsuarioId();
             var categorias = await ObtenerCategorias(usuarioId, tipoOperacion);
