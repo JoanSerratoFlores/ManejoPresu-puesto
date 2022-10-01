@@ -12,6 +12,7 @@ namespace ManejoPresupuesto.Servicios
         Task Crear(Transaccion transaccion);
         Task<IEnumerable<Transaccion>> ObtenerPorCuentaId(ObtenerTransaccionesPorCuenta modelo);
         Task<Transaccion> ObtenerPorId(int id, int usuarioId);
+        Task<IEnumerable<ResultadoObtenerPorMes>> ObtenerPorMes(int usuarioId, int año);
         Task<IEnumerable<ResultadoObtenerPorSemana>> ObtenerPorSemana(ParametrosObtenerTransaccionesPorUsuario modelo);
         Task<IEnumerable<Transaccion>> ObtenerPorUsuarioId(ParametrosObtenerTransaccionesPorUsuario modelo);
     }
@@ -42,7 +43,7 @@ namespace ManejoPresupuesto.Servicios
             transaccion.Id = id;
         }
 
-        public async Task<IEnumerable<Transaccion>>ObtenerPorCuentaId(
+        public async Task<IEnumerable<Transaccion>> ObtenerPorCuentaId(
             ObtenerTransaccionesPorCuenta modelo)
         {
             using var connection = new SqlConnection(connectionString);
@@ -55,7 +56,7 @@ namespace ManejoPresupuesto.Servicios
                 inner join Cuentas cu
                 on cu.Id = t.CuentaId
                 WHERE t.CuentaId = @CuentaId and t.UsuarioId = @UsuarioId
-                and FechaTransaccion BETWEEN @FechaInicio AND @FechaFin",modelo);
+                and FechaTransaccion BETWEEN @FechaInicio AND @FechaFin", modelo);
         }
 
         public async Task<IEnumerable<Transaccion>> ObtenerPorUsuarioId(
@@ -75,7 +76,7 @@ namespace ManejoPresupuesto.Servicios
                 ORDER BY t.FechaTransaccion DESC", modelo);
         }
 
-        public async Task Actualizar (Transaccion transaccion,decimal montoAnterior, int cuentaAnteriorId)
+        public async Task Actualizar(Transaccion transaccion, decimal montoAnterior, int cuentaAnteriorId)
         {
             using var connection = new SqlConnection(connectionString);
             await connection.ExecuteAsync("Transacciones_Actualizar",
@@ -92,7 +93,7 @@ namespace ManejoPresupuesto.Servicios
                 }, commandType: System.Data.CommandType.StoredProcedure);
         }
 
-        public async Task<Transaccion> ObtenerPorId(int id,int usuarioId)
+        public async Task<Transaccion> ObtenerPorId(int id, int usuarioId)
         {
             using var connection = new SqlConnection(connectionString);
             return await connection.QueryFirstOrDefaultAsync<Transaccion>(
@@ -100,7 +101,7 @@ namespace ManejoPresupuesto.Servicios
                 FROM Transacciones
                 INNER JOIN Categorias cat
                 ON cat.Id = Transacciones.CategoriaId
-                WHERE Transacciones.Id = @Id AND Transacciones.UsuarioId = @UsuarioId", 
+                WHERE Transacciones.Id = @Id AND Transacciones.UsuarioId = @UsuarioId",
                 new { id, usuarioId });
         }
 
@@ -118,6 +119,19 @@ namespace ManejoPresupuesto.Servicios
             FechaTransaccion BETWEEN @fechaInicio and @fechaFin
             GROUP BY datediff(d, @fechaInicio, FechaTransaccion) / 7, cat.TipoOperacionId
             ", modelo);
+        }
+
+        public async Task<IEnumerable<ResultadoObtenerPorMes>> ObtenerPorMes(int usuarioId, int año)
+        {
+            using var connection = new SqlConnection(connectionString);
+            return await connection.QueryAsync<ResultadoObtenerPorMes>(@"
+            SELECT MONTH(FechaTransaccion) as Mes,
+            SUM(Monto) as Monto, cat.TipoOperacionId
+            FROM Transacciones
+            INNER JOIN Categorias cat
+            ON cat.Id = Transacciones.CategoriaId
+            WHERE Transacciones.UsuarioId =@usuarioId AND YEAR (FechaTransaccion)=@Año
+            GROUP BY Month(FechaTransaccion) , cat.TipoOperacionId", new { usuarioId, año }); 
         }
 
 
