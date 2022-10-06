@@ -2,6 +2,7 @@
 using ClosedXML.Excel;
 using ManejoPresupuesto.Models;
 using ManejoPresupuesto.Servicios;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Data;
@@ -104,30 +105,30 @@ namespace ManejoPresupuesto.Controllers
 
 
 
-        public async Task<IActionResult>Mensual(int año)
+        public async Task<IActionResult> Mensual(int año)
         {
             var usuarioId = servicioUsuarios.ObtenerUsuarioId();
-            if(año==0)
+            if (año == 0)
             {
                 año = DateTime.Today.Year;
             }
 
-            var transaccionesPorMes = await repositorioTransacciones.ObtenerPorMes(usuarioId,año);
+            var transaccionesPorMes = await repositorioTransacciones.ObtenerPorMes(usuarioId, año);
             var transacionnesAgrupadas = transaccionesPorMes.GroupBy(x => x.Mes)
                 .Select(x => new ResultadoObtenerPorMes()
                 {
                     Mes = x.Key,
                     Ingreso = x.Where(x => x.TipoOperacionId == TipoOperacion.Ingreso).
                     Select(x => x.Monto).FirstOrDefault(),
-                    Gasto= x.Where(x => x.TipoOperacionId == TipoOperacion.Gasto).
+                    Gasto = x.Where(x => x.TipoOperacionId == TipoOperacion.Gasto).
                     Select(x => x.Monto).FirstOrDefault()
                 }).ToList();
 
-            for(int mes = 1; mes <= 12; mes++)
+            for (int mes = 1; mes <= 12; mes++)
             {
                 var transaccion = transacionnesAgrupadas.FirstOrDefault(x => x.Mes == mes);
                 var fechaReferencia = new DateTime(año, mes, 1);
-                if(transaccion is null)
+                if (transaccion is null)
                 {
                     transacionnesAgrupadas.Add(new ResultadoObtenerPorMes()
                     {
@@ -142,7 +143,7 @@ namespace ManejoPresupuesto.Controllers
             }
 
             transacionnesAgrupadas = transacionnesAgrupadas.OrderByDescending(x => x.Mes).ToList();
-            var modelo=new ReporteMensualViewModel();
+            var modelo = new ReporteMensualViewModel();
             modelo.Año = año;
             modelo.TransaccionesPorMes = transacionnesAgrupadas;
             return View(modelo);
@@ -155,7 +156,7 @@ namespace ManejoPresupuesto.Controllers
 
         [HttpGet]
 
-        public async Task<FileResult> ExportarExcelPorMes (int mes, int año)
+        public async Task<FileResult> ExportarExcelPorMes(int mes, int año)
         {
             var fechaInicio = new DateTime(año, mes, 1);
             var fechaFin = fechaInicio.AddMonths(1).AddDays(-1);
@@ -164,9 +165,9 @@ namespace ManejoPresupuesto.Controllers
             var transacciones = await repositorioTransacciones.ObtenerPorUsuarioId(
                 new ParametrosObtenerTransaccionesPorUsuario
                 {
-                    UsuarioId=usuarioId,
-                    FechaInicio=fechaInicio,
-                    FechaFin=fechaFin
+                    UsuarioId = usuarioId,
+                    FechaInicio = fechaInicio,
+                    FechaFin = fechaFin
                 });
 
             var nombreArchivo = $"Manejo Presupuesto - {fechaInicio.ToString("MMM yyyy")}.xlsx";
@@ -174,7 +175,7 @@ namespace ManejoPresupuesto.Controllers
         }
 
         [HttpGet]
-        public async Task <FileResult> ExportarExcelPorAño(int año)
+        public async Task<FileResult> ExportarExcelPorAño(int año)
         {
             var fechaInicio = new DateTime(año, 1, 1);
             var fechaFin = fechaInicio.AddYears(1).AddDays(-1);
@@ -194,12 +195,12 @@ namespace ManejoPresupuesto.Controllers
 
         [HttpGet]
 
-        public async Task<FileResult>ExportarExcelTodo()
+        public async Task<FileResult> ExportarExcelTodo()
         {
             var fechaInicio = DateTime.Today.AddYears(-100);
             var fechaFin = DateTime.Today.AddYears(1000);
             var usuarioId = servicioUsuarios.ObtenerUsuarioId();
-            
+
             var transacciones = await repositorioTransacciones.ObtenerPorUsuarioId(
                 new ParametrosObtenerTransaccionesPorUsuario
                 {
@@ -212,7 +213,7 @@ namespace ManejoPresupuesto.Controllers
             return GenerarExcel(nombreArchivo, transacciones);
         }
 
-        private FileResult GenerarExcel (string nombreArchivo, IEnumerable<Transaccion>transacciones)
+        private FileResult GenerarExcel(string nombreArchivo, IEnumerable<Transaccion> transacciones)
         {
             DataTable dataTable = new DataTable("Transacciones");
             dataTable.Columns.AddRange(new DataColumn[]
@@ -255,7 +256,7 @@ namespace ManejoPresupuesto.Controllers
             return View();
         }
 
-        public async Task<JsonResult>ObtenerTransaccionesCalendario(DateTime start, DateTime end)
+        public async Task<JsonResult> ObtenerTransaccionesCalendario(DateTime start, DateTime end)
         {
             var usuarioId = servicioUsuarios.ObtenerUsuarioId();
 
@@ -280,7 +281,7 @@ namespace ManejoPresupuesto.Controllers
         public async Task<JsonResult> ObtenerTransaccionesPorFecha(DateTime fecha)
         {
             var usuarioId = servicioUsuarios.ObtenerUsuarioId();
-            
+
             var transacciones = await repositorioTransacciones.ObtenerPorUsuarioId(
                 new ParametrosObtenerTransaccionesPorUsuario
                 {
