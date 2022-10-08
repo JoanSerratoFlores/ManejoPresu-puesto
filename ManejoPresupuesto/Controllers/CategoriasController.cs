@@ -1,6 +1,7 @@
 ﻿using ManejoPresupuesto.Models;
 using ManejoPresupuesto.Servicios;
 using Microsoft.AspNetCore.Mvc;
+using static ManejoPresupuesto.Models.PaginacionRespuesta;
 
 namespace ManejoPresupuesto.Controllers
 {
@@ -16,11 +17,22 @@ namespace ManejoPresupuesto.Controllers
             this.serviciosUsuarios = serviciosUsuarios;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(PaginacionViewModel paginacionViewModel)
         {
             var usuarioId = serviciosUsuarios.ObtenerUsuarioId();
-            var categorias = await repositorioCategorias.Obtener(usuarioId);
-            return View(categorias);
+            var categorias = await repositorioCategorias.Obtener(usuarioId, paginacionViewModel);
+            var totalCategorias = await repositorioCategorias.Contar(usuarioId);
+
+            var respuestaVM = new PaginacionRespuesta<Categoria>
+            {
+                Elementos = categorias,
+                Pagina = paginacionViewModel.Pagina,
+                RecordsPorPagina = paginacionViewModel.RecordsPorPagina,
+                CantidadTotalRecords = totalCategorias,
+                BaseURL = Url.Action()
+            };
+
+            return View(respuestaVM);
         }
 
         [HttpGet]
